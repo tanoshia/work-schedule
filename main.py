@@ -121,6 +121,12 @@ def view_all_shifts(startDateStr):
 
 
 
+#------------PERSONAL SHIFTS FUNCTION CALLER (call view_my_shifts after asking for who to search for)----------------
+def view_my_shifts_caller(priorMondayDateStr, inputID=0):
+    inputID = input("Employee ID: ")
+    view_my_shifts(priorMondayDateStr, inputID)
+
+
 #------------PERSONAL SHIFTS (Create/update and display view)----------------
 def view_my_shifts(startDateStr, empID):
 
@@ -188,6 +194,7 @@ def view_my_shifts(startDateStr, empID):
     
     print(table)
 
+    view_my_shifts_UI(startDateStr, empID)
 
 
 #------------D----------------
@@ -236,7 +243,7 @@ def main_UI():
     def menu_option(inputChoice):
         switcher = {
             '1': lambda: view_all_shifts(priorMondayDateStr),
-            '2': lambda: view_my_shifts(priorMondayDateStr, 3), #TEMP dummy value 1
+            '2': lambda: view_my_shifts_caller(priorMondayDateStr),
             '3': lambda: view_time_off(),
             'm': lambda: message_manager(),
             'b': lambda: back(),
@@ -247,7 +254,7 @@ def main_UI():
 
     print("Schedule Viewer 9000")
     print("1 | View All Shifts")
-    print("2 | View My Shifts [WIP]")
+    print("2 | View My Shifts")
     print("3 | View Time off (+Pending) [WIP]")
     print("m | Message a manager [WIP]")
     print("b | Back [WIP]")
@@ -270,13 +277,13 @@ def view_all_next_week():
     return 0
 
 #------------ALL SHIFTS MENU UI (display options available)----------------
-def view_all_shifts_UI(priorMondayDateStr):
+def view_all_shifts_UI(priorMondayDateStr, empID=0):
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
             '1': lambda: view_all_prev_week,
             '2': lambda: view_all_next_week,
-            '3': lambda: view_my_shifts(priorMondayDateStr, 3), #TEMP dummy value 1
+            '3': lambda: view_my_shifts_caller(priorMondayDateStr, empID),
             '4': lambda: view_time_off,
             'm': lambda: message_manager,
             'b': lambda: back,
@@ -288,7 +295,7 @@ def view_all_shifts_UI(priorMondayDateStr):
     print("Viewing all employee shifts")
     print("1 | <- Previous Week [WIP]")
     print("2 | -> Next Week [WIP]")
-    print("3 | View My Shifts [WIP]")
+    print("3 | View My Shifts")
     print("4 | View Time off (+Pending) [WIP]")
     print("m | Message a manager [WIP]")
     print("b | Back [WIP]")
@@ -300,6 +307,35 @@ def view_all_shifts_UI(priorMondayDateStr):
 
 
 #------------MY SHIFTS MENU UI (display options available)----------------
+def view_my_shifts_UI(priorMondayDateStr, empID):
+    # handle the menu options
+    def menu_option(inputChoice):
+        switcher = {
+            '1': lambda: view_all_prev_week,
+            '2': lambda: view_all_next_week,
+            '3': lambda: view_all_shifts(priorMondayDateStr),
+            '4': lambda: view_time_off,
+            'm': lambda: message_manager,
+            'b': lambda: back,
+            'q': lambda: quit_program
+        }
+        # get function from switcher dict
+        return switcher.get(inputChoice, default)()
+
+    print("Viewing all employee shifts")
+    print("1 | <- Previous Week [WIP]")
+    print("2 | -> Next Week [WIP]")
+    print("3 | View All Shifts")
+    print("4 | View Time off (+Pending) [WIP]")
+    print("m | Message a manager [WIP]")
+    print("b | Back [WIP]")
+    print("q | Quit")
+    inputChoice = input("Input: ")
+
+    menu_option(inputChoice)
+
+
+
 
 #------------EDIT MY SHIFT MENU UI (display options available)----------------
 
