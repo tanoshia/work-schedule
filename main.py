@@ -137,6 +137,14 @@ def view_my_shifts(startDateStr, empID):
     connection = sqlite3.connect('employeeShifts.db')
     cursor = connection.cursor()
 
+    # fetch employee count
+    cursor.execute("SELECT COUNT(DISTINCT empID) FROM empShifts")
+    empCount = cursor.fetchone()[0]
+    if int(empID) > empCount:
+        print(f"Employee ID too large! No employee found; Try again.")
+        view_my_shifts_caller(startDateStr)
+        return
+
     #get employee name from db
     employeeName = get_employeeName(empID, cursor)
 
