@@ -5,10 +5,10 @@ print("\nAll Shifts view")
 
 totalTable = PrettyTable()
 totalTable.field_names = ["Employee", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-totalTable.add_row(["Brett Vandenburg", "7am-3pm", "7am-3pm", "7am-3pm", "6am-2pm", "7am-3pm", ".", "."])
-totalTable.add_row(["David Thoe", ".", ".", "8am-4pm", "7am-3pm", "8am-4pm", "7am-3pm", "7am-3pm"])
-totalTable.add_row(["Adam Marks", ".", ".", "11am-6pm", "11am-6pm", "11am-6pm", "11am-6pm", "11am-6pm"])
-totalTable.add_row(["Ethan Shaw", "5pm-9pm", "2pm-9pm", ".", ".", "8am-4pm", "7am-3pm", "7am-3pm"])
+totalTable.add_row(["9 Brett Vandenburg", "7am-3pm", "7am-3pm", "7am-3pm", "6am-2pm", "7am-3pm", ".", "."])
+totalTable.add_row(["31 David Thoe", ".", ".", "8am-4pm", "7am-3pm", "8am-4pm", "7am-3pm", "7am-3pm"])
+totalTable.add_row(["67 Adam Marks", ".", ".", "11am-6pm", "11am-6pm", "11am-6pm", "11am-6pm", "11am-6pm"])
+totalTable.add_row(["23 Ethan Shaw", "5pm-9pm", "2pm-9pm", ".", ".", "8am-4pm", "7am-3pm", "7am-3pm"])
 print(totalTable)
 
 print("1 : View My Shifts")
@@ -48,9 +48,8 @@ selfTable.add_rows(
 print(selfTable)
 
 print("1 | View All Shifts")
-print("2 | Edit My Shifts")
+print("2 | View My Shifts")
 print("3 | View Time off (+Pending)")
-print("4 | Request Time off")
 print("m | Message a manager")
 print("b | Back")
 print("q | Quit")
