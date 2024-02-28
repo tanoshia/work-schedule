@@ -3,9 +3,18 @@ from datetime import datetime, timedelta
 import sqlite3
 from prettytable import PrettyTable
 
+#------------MICROSERVICE CONNECTION (for time off handling)----------------
+import zmq
+
+context = zmq.Context()
+socket = context.socket(zmq.REQ)
+socket.connect('tcp://localhost:5555')
+print('connected to server')
+
+
 
 #------------HELPER FUNCTIONS (for shift displays)----------------
-def get_employeeName(empID, cursor):
+def get_employeeName(empID, cursor): # assumes open db due to cursor parameter
     # Assumes employee table is named 'employees' with columns 'empID' and 'name'
     cursor.execute("SELECT name FROM employees WHERE empID = ?", (empID,))
     result = cursor.fetchone()
@@ -45,6 +54,32 @@ def simplify_shiftTime(startTimeStr, endTimeStr):
 
     #return back as string
     return f"{startTimeSimple}-{endTimeSimple}"
+
+
+#------------HELPER FUNCTIONS (for validating managers)----------------
+def is_manager(empID):
+    # open db
+    connection = sqlite3.connect('employeeShifts.db')
+    cursor = connection.cursor()
+    
+    # check if employee with the given empID is a manager in the position column
+    cursor.execute("SELECT position FROM employees WHERE empID = ?", (empID,))
+    result = cursor.fetchone()
+
+    # close db
+    connection.close() 
+    
+    if result and result[0] == 'Manager':
+        return True
+    else:
+        return False
+
+
+def is_correct_password(inputPassword):
+    #omit for assignment so this can be tested by anyone for now
+    return True
+
+
 
 
 
@@ -117,6 +152,7 @@ def view_all_shifts(startDateStr):
 
     print(table)
     view_all_shifts_UI(startDateStr)
+
 
 
 
@@ -205,15 +241,103 @@ def view_my_shifts(startDateStr, empID):
     view_my_shifts_UI(startDateStr, empID)
 
 
-#------------D----------------
-def view_time_off():
+#------------TIME OFF FUNCTION CALLER (call view_time_off after asking for who to search for and validating managers)----------------
+def view_time_off_caller(priorMondayDateStr, inputID=0):
+    inputID = input("Employee ID: ")
+    
+    # open db
+    connection = sqlite3.connect('employeeShifts.db')
+    cursor = connection.cursor()
 
-    return 0
+    # check manager numbers
+    if is_manager(inputID):
+        correctPassword = False
+        while not correctPassword:
+            print("Enter Manager Password (or q to quit)    **omit for assignment, any string will be correct**")
+            inputPassword = input("Input: ")
+            if inputPassword == 'q':
+                print("Quitting")
+                return 0
+            else:
+                correctPassword = is_correct_password(inputPassword)
+        view_all_time_off(priorMondayDateStr, inputID)  # for managers
+    else: 
+        view_my_time_off(priorMondayDateStr, inputID)   # for non-managers
 
-#------------E----------------
-def view_time_off():
+    # close db
+    connection.close() 
 
-    return 0
+
+#------------ALL TIME OFF VIEW (Manager)----------------
+def view_all_time_off(priorMondayDateStr, mngrID):      # for managers
+    # get an employee's active time-off requests from microservice
+    msg = ['M']
+    socket.send_json(msg)       # through ZeroMQ
+
+    requests = socket.recv_json()
+
+    # table headers
+    table = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Status", "Updated by", "Time Off Reason"])
+    table = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Status", "Time Off Reason"])
+    pendingTable = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Time Off Reason"])
+
+    for request in requests:
+        requestID, empID, startDate, endDate, reason, approvingManager, approved = request
+        
+        # determine the status based on 'approved' and 'approvingManager'
+        if approved:
+            status = "Approved"
+        elif approvingManager == 0 or approvingManager is None:
+            status = "Pending"
+            pendingTable.add_row([requestID, empID, startDate, endDate, reason])
+        else:
+            status = "Denied"
+        
+        # add row to table
+        table.add_row([requestID, empID, startDate, endDate, status, approvingManager, reason])
+    
+    print(table)
+    print(pendingTable)
+
+#------------MY TIME OFF VIEW (Employee)----------------
+def view_my_time_off(startDateStr, empID):
+    # get an employee's active time-off requests from microservice
+    msg = ['E', empID]
+    socket.send_json(msg)       # through ZeroMQ
+
+    requests = socket.recv_json()
+
+    # open db for adding manager name in place of their id
+    connection = sqlite3.connect('employeeShifts.db')
+    cursor = connection.cursor()
+    
+    # table headers
+    table = PrettyTable(["Start Date", "End Date", "Status", "Updated by", "Time Off Reason"])
+
+    for request in requests:
+        empID, startDate, endDate, reason, approvingManager, approved = request
+        
+        # determine the status based on 'approved' and 'approvingManager'
+        if approved:
+            status = "Approved"
+        elif approvingManager == 0 or approvingManager is None:
+            status = "Pending"
+        else:
+            status = "Denied"
+        # if the approving manager has a value
+        if approvingManager is not None:
+            approvingManager = get_employeeName(approvingManager, cursor)
+
+        # add row to table
+        table.add_row([startDate, endDate, status, approvingManager, reason])
+
+    connection.close() 
+
+    print(table)
+
+
+
+
 
 #------------F----------------
 def message_manager():
@@ -227,8 +351,7 @@ def back():
 
 #------------H----------------
 def quit_program():
-
-    return 0
+    return
 
 #------------I----------------
 def default():
@@ -236,12 +359,20 @@ def default():
 
 
 
-
+#------------------------------------------------------------------------------
+#
+#
+#-----------------------------------Menus--------------------------------------
+#
+#
+#------------------------------------------------------------------------------
+    
 #------------MAIN MENU UI (greet and display options available)----------------
 def main_UI():
     today = datetime.now()
     lastWeek = today - timedelta(days=7)
-    today = lastWeek #TEMP
+    nextWeek = today + timedelta(days=7)
+    today = nextWeek #TEMP
     # calc todays weekday (0=Monday, 1=Tuesday...6=Sunday)
     daysToMonday = today.weekday()
     priorMondayDate = today - timedelta(days=daysToMonday)
@@ -252,7 +383,7 @@ def main_UI():
         switcher = {
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
-            '3': lambda: view_time_off(),
+            '3': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager(),
             'b': lambda: back(),
             'q': lambda: quit_program()
@@ -261,10 +392,10 @@ def main_UI():
         return switcher.get(inputChoice, default)()
 
     print("Schedule Viewer 9000")
-    print("1 | View All Shifts")
-    print("2 | View My Shifts")
-    print("3 | View Time off (+Pending) [WIP]")
-    print("m | Message a manager [WIP]")
+    print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
+    print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
+    print("3 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -292,7 +423,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
             '1': lambda: view_all_prev_week,
             '2': lambda: view_all_next_week,
             '3': lambda: view_my_shifts_caller(priorMondayDateStr, empID),
-            '4': lambda: view_time_off,
+            '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager,
             'b': lambda: back,
             'q': lambda: quit_program
@@ -303,9 +434,9 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("Viewing all employee shifts")
     print("1 | <- Previous Week [WIP]")
     print("2 | -> Next Week [WIP]")
-    print("3 | View My Shifts")
-    print("4 | View Time off (+Pending) [WIP]")
-    print("m | Message a manager [WIP]")
+    print("3 | My Shifts                    | View in detial and edit your upcoming shifts")
+    print("4 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -322,7 +453,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
             '1': lambda: view_all_prev_week,
             '2': lambda: view_all_next_week,
             '3': lambda: view_all_shifts(priorMondayDateStr),
-            '4': lambda: view_time_off,
+            '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager,
             'b': lambda: back,
             'q': lambda: quit_program
@@ -330,12 +461,12 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
 
-    print("Viewing all employee shifts")
+    print("Viewing my shifts")
     print("1 | <- Previous Week [WIP]")
     print("2 | -> Next Week [WIP]")
-    print("3 | View All Shifts")
-    print("4 | View Time off (+Pending) [WIP]")
-    print("m | Message a manager [WIP]")
+    print("3 | All Shifts                   | View shifts for all employees for the upcoming week")
+    print("4 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -350,6 +481,33 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
 #------------SWITCH SHIFTS MENU UI (display options available)----------------
 
 #------------TIME OFF MENU UI (display options available)----------------
+def view_time_off_UI(priorMondayDateStr, empID):
+    # handle the menu options
+    def menu_option(inputChoice):
+        switcher = {
+            '1': lambda: view_all_shifts(priorMondayDateStr),
+            '2': lambda: view_my_shifts_caller(priorMondayDateStr),
+            '3': lambda: view_time_off_caller(priorMondayDateStr),
+            'm': lambda: message_manager(),
+            'b': lambda: back(),
+            'q': lambda: quit_program()
+        }
+        # get function from switcher dict
+        return switcher.get(inputChoice, default)()
+
+    print("Viewing Time Off")
+    print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
+    print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
+    print("3 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("m | Message a manager [WIP]      | For any questions or other requests!")
+    print("b | Back [WIP]")
+    print("q | Quit")
+    inputChoice = input("Input: ")
+
+    menu_option(inputChoice)
+
+
+
 
 #------------MNGR TIME OFF MENU UI (display options available)----------------
 
