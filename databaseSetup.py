@@ -9,7 +9,7 @@ cursor = connection.cursor()
 cursor.execute("DELETE FROM employees")
 cursor.execute("DELETE FROM empShifts")
 
-#create shift table
+#create employees table
 command1 = """CREATE TABLE IF NOT EXISTS employees (
 empID INTEGER AUTO_INCREMENT PRIMARY KEY,
 name TEXT,
@@ -18,7 +18,7 @@ sickHours)"""
 
 cursor.execute(command1)
 
-#create employees table
+#create shift table
 command2 = """CREATE TABLE IF NOT EXISTS empShifts (
 shiftID INTEGER PRIMARY KEY,
 empID INTEGER,
@@ -38,7 +38,7 @@ cursor.execute("""INSERT INTO employees
                ('David Thoe', 'Manager')""")
 cursor.execute("""INSERT INTO employees 
                (name, position) VALUES 
-               ('Ethan Shaw', 'Manager')""")
+               ('Ethan Shaw', 'Worker')""")
 cursor.execute("""INSERT INTO employees 
                (name, position) VALUES 
                ('Adam Marks', 'Worker')""")
@@ -49,43 +49,35 @@ connection.commit()
 
 cursor.execute("""INSERT INTO empShifts 
 (empID, shiftDate, startTime, endTime) VALUES 
-(1, '2024-01-22', '07:00', '15:00'),
-(1, '2024-01-23', '07:00', '15:00'),
-(1, '2024-01-24', '07:00', '15:00'),
-(1, '2024-01-25', '06:00', '14:00'),
-(1, '2024-01-26', '07:00', '15:00')""")
+(1, '2024-03-04', '07:00', '15:00'),
+(1, '2024-03-05', '07:00', '15:00'),
+(1, '2024-03-06', '07:00', '15:00'),
+(1, '2024-03-07', '06:00', '14:00'),
+(1, '2024-03-08', '07:00', '15:00')""")
 
 cursor.execute("""INSERT INTO empShifts 
 (empID, shiftDate, startTime, endTime) VALUES 
-(2, '2024-01-24', '08:00', '16:00'),
-(2, '2024-01-25', '07:00', '15:00'),
-(2, '2024-01-26', '08:00', '16:00'),
-(2, '2024-01-27', '07:00', '15:00'),
-(2, '2024-01-28', '07:00', '15:00')""")
+(2, '2024-03-06', '08:00', '16:00'),
+(2, '2024-03-07', '07:00', '15:00'),
+(2, '2024-03-08', '08:00', '16:00'),
+(2, '2024-03-09', '07:00', '15:00'),
+(2, '2024-03-10', '07:00', '15:00')""")
 
 cursor.execute("""INSERT INTO empShifts 
 (empID, shiftDate, startTime, endTime) VALUES 
-(4, '2024-01-24', '11:00', '18:00'),
-(4, '2024-01-25', '11:00', '18:00'),
-(4, '2024-01-26', '11:00', '18:00'),
-(4, '2024-01-27', '11:00', '18:00'),
-(4, '2024-01-28', '11:00', '18:00')""")
+(3, '2024-03-04', '17:00', '21:30'),
+(3, '2024-03-05', '14:00', '21:30'),
+(3, '2024-03-07', '08:00', '16:00'),
+(3, '2024-03-09', '07:00', '15:00'),
+(3, '2024-03-10', '07:00', '15:00')""")
 
 cursor.execute("""INSERT INTO empShifts 
 (empID, shiftDate, startTime, endTime) VALUES 
-(3, '2024-01-22', '17:00', '21:30'),
-(3, '2024-01-23', '14:00', '21:30'),
-(3, '2024-01-26', '08:00', '16:00'),
-(3, '2024-01-27', '07:00', '15:00'),
-(3, '2024-01-28', '07:00', '15:00')""")
-
-cursor.execute("""INSERT INTO empShifts 
-(empID, shiftDate, startTime, endTime) VALUES 
-(1, '2024-01-29', '07:00', '15:00'),
-(2, '2024-01-30', '07:00', '15:00'),
-(3, '2024-01-31', '07:00', '15:00'),
-(3, '2024-02-01', '06:00', '14:00'),
-(4, '2024-02-02', '07:00', '15:00')""")
+(4, '2024-03-04', '11:00', '18:00'),
+(4, '2024-03-05', '11:00', '18:00'),
+(4, '2024-03-08', '11:00', '18:00'),
+(4, '2024-03-09', '11:00', '18:00'),
+(4, '2024-03-10', '11:00', '18:00')""")
 
 connection.commit()
 
