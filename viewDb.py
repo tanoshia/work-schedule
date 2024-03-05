@@ -31,5 +31,10 @@ print_table_data(cursor, "employees")
 print("\nEmployee Shifts Table (Sorted by shiftDate and startTime):")
 print_table_data(cursor, "empShifts", ["shiftDate", "startTime"])
 
+# Adding display for the 'messages' table
+print("\nMessages Table:")
+print_table_data(cursor, "messages", ["messageID"])  # Assuming sorting by messageID makes sense for your application
+
+
 # Close the database connection
 connection.close()
