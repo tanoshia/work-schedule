@@ -20,6 +20,7 @@ def get_employeeName(empID, cursor): # assumes open db due to cursor parameter
     result = cursor.fetchone()
     if result: return result[0]
     else: None
+    return
 
 # generate the formatted string for a single day
 def generate_weekday(dateStr):
@@ -78,10 +79,6 @@ def is_manager(empID):
 def is_correct_password(inputPassword):
     #omit for assignment so this can be tested by anyone for now
     return True
-
-
-
-
 
 
 #------------ALL SHIFTS (Create/update and display view)----------------
@@ -152,6 +149,8 @@ def view_all_shifts(startDateStr):
 
     print(table)
     view_all_shifts_UI(startDateStr)
+    print("Leaving view_all_shifts")
+    return
 
 
 
@@ -161,6 +160,8 @@ def view_all_shifts(startDateStr):
 def view_my_shifts_caller(priorMondayDateStr, inputID=0):
     inputID = input("Employee ID: ")
     view_my_shifts(priorMondayDateStr, inputID)
+    print("Leaving view_my_shifts_caller")
+    return
 
 
 #------------PERSONAL SHIFTS (Create/update and display view)----------------
@@ -237,22 +238,38 @@ def view_my_shifts(startDateStr, empID):
         table.add_row(rowData)
     
     print(table)
-
     view_my_shifts_UI(startDateStr, empID)
-
+    print("Leaving view_my_shifts")
+    return
 
 
 
 #------------TIME OFF FUNCTION CALLER (call view_time_off after asking for who to search for and validating managers)----------------
-def view_time_off_caller(priorMondayDateStr, listType='all'):    # 'all' or 'pending'
-    inputID = input("Employee ID: ")
+def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # 'all' or 'pending'
+    # if no ID passed in, ask for one
+    if empID:
+        inputID = empID
+        # print("\n\naaaaaaa")
+        # print(empID)
+        # print("aaaaaaa\n\n")
+    else:
+        # print("\n\nbbbbbbb")
+        # print(empID)
+        # print("bbbbbbb\n\n")
+        inputID = input("Employee ID: ")
+        
     
-    # open db
-    connection = sqlite3.connect('employeeShifts.db')
-    cursor = connection.cursor()
-
-    # check manager numbers
+    # check if the PASSED IN ID is a manager
+    if is_manager(empID):   # if the PASSED IN ID is a manager, they've already typed password, thus skip next
+        inputLastStartDate = input("End Date (blank for no date cap)\n[YYYY-MM-DD]: ")
+        view_all_time_off(priorMondayDateStr, inputID, listType, inputLastStartDate)
+        return
+    # check if the INPUT ID is a manager
     if is_manager(inputID):
+        # open db for manager validation and password check
+        connection = sqlite3.connect('employeeShifts.db')
+        cursor = connection.cursor()
+
         correctPassword = False
         while not correctPassword:
             print("Enter Manager Password (or q to quit)    **press any key (password is omit for assignment)**")
@@ -263,102 +280,93 @@ def view_time_off_caller(priorMondayDateStr, listType='all'):    # 'all' or 'pen
             else:
                 correctPassword = is_correct_password(inputPassword)
 
+        connection.close()  # close db
+
         # if password correct:
         inputLastStartDate = input("End Date (blank for no date cap)\n[YYYY-MM-DD]: ")
-        if listType == 'all':
-            view_all_time_off(priorMondayDateStr, inputID, inputLastStartDate)  # for managers
-        elif listType == 'pending':
-            view_all_pending_time_off(priorMondayDateStr, inputID, inputLastStartDate)  # for managers
+        view_all_time_off(priorMondayDateStr, inputID, listType, inputLastStartDate)
     else: 
         view_my_time_off(priorMondayDateStr, inputID)   # for non-managers
-
-    # close db
-    connection.close() 
+    
+    print("Leaving view_time_off_caller")
+    return
 
 
 #------------ALL TIME OFF VIEW (Manager)----------------
-def view_all_time_off(priorMondayDateStr, mngrID, lastStartDate):      # for managers
-    if len(lastStartDate) < 1:    # if no end date
+def view_all_time_off(priorMondayDateStr, mngrID, listType, lastStartDate=None):      # for managers
+    if lastStartDate == None or len(lastStartDate) < 1:    # if no end date
         # get all employee's active time-off requests from microservice
         msg = ['M']
         socket.send_json(msg)       # through ZeroMQ
     else:       # if end date presented
         msg = ['M', lastStartDate]
         socket.send_json(msg)       # through ZeroMQ
-    requests = socket.recv_json()
-    print("Received requests:", requests)
-
-    # open db for adding manager name in place of their id
-    connection = sqlite3.connect('employeeShifts.db')
-    cursor = connection.cursor()
-    
-    # table headers
-    table = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Status", "Updated by", "Time Off Reason"])
-
-    for request in requests:
-        requestID, empID, startDate, endDate, reason, approvingManager, approved = request
-        
-        # determine the status based on 'approved' and 'approvingManager'
-        if approved:
-            status = "Approved"
-        elif approvingManager == 0 or approvingManager is None:
-            status = "Pending"
-        else:
-            status = "Denied"
-        # if the approving manager has a value
-        if approvingManager is not None:
-            approvingManager = get_employeeName(approvingManager, cursor)
-
-        # add row to table
-        table.add_row([requestID, empID, startDate, endDate, status, approvingManager, reason])
-    
-    connection.close() 
-
-    print(table)
-
-
-#------------ALL PENDING TIME OFF VIEW (Manager)----------------
-def view_all_pending_time_off(priorMondayDateStr, mngrID, lastStartDate=None):      # for managers
-    if len(lastStartDate) < 1:    # if no end date
-        # get all employee's pending time-off requests from microservice
-        msg = ['M']
-        socket.send_json(msg)       # through ZeroMQ
-    else:       # if end date presented
-        msg = ['M', '2024-05-28']
-        socket.send_json(msg)       # through ZeroMQ
 
     requests = socket.recv_json()
 
     # open db for adding manager name in place of their id
     connection = sqlite3.connect('employeeShifts.db')
     cursor = connection.cursor()
-    
-    # table headers
-    pendingTable = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Time Off Reason"])
 
-    for request in requests:
-        requestID, empID, startDate, endDate, reason, approvingManager, approved = request
-        
-        # determine the status based on 'approved' and 'approvingManager'
-        if approved:
-            status = "Approved"
-        elif approvingManager == 0 or approvingManager is None:
-            status = "Pending"
-            # add row to table only if it is pending approval
-            pendingTable.add_row([requestID, empID, startDate, endDate, reason])
-        else:
-            status = "Denied"
-        # if the approving manager has a value
-        if approvingManager is not None:
-            approvingManager = get_employeeName(approvingManager, cursor)
-    
-    connection.close() 
+    if listType == 'all':
+        # table headers
+        table = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Status", "Updated by", "Time Off Reason"])
 
-    print(pendingTable)
+        for request in requests:
+            requestID, empID, startDate, endDate, reason, approvingManager, approved = request
+            
+            # determine the status based on 'approved' and 'approvingManager'
+            if approved:
+                status = "Approved"
+            elif approvingManager == 0 or approvingManager is None:
+                status = "Pending"
+            else:
+                status = "Denied"
+            # if the approving manager has a value
+            if approvingManager is not None:
+                approvingManager = get_employeeName(approvingManager, cursor)
+
+            # add row to table
+            table.add_row([requestID, empID, startDate, endDate, status, approvingManager, reason])
+    
+        # end, resume to manager TO UI
+        connection.close() 
+        print(table)
+        view_all_time_off_UI(priorMondayDateStr, mngrID, 'all', lastStartDate)    # 'all' or 'pending'
+    elif listType == 'pending':
+        # table headers
+        pendingTable = PrettyTable(["reqID", "empID", "Start Date", "End Date", "Time Off Reason"])
+
+        for request in requests:
+            requestID, empID, startDate, endDate, reason, approvingManager, approved = request
+            
+            # determine the status based on 'approved' and 'approvingManager'
+            if approved:
+                status = "Approved"
+            elif approvingManager == 0 or approvingManager is None:
+                status = "Pending"
+                # add row to table only if it is pending approval
+                pendingTable.add_row([requestID, empID, startDate, endDate, reason])
+            else:
+                status = "Denied"
+            # if the approving manager has a value
+            if approvingManager is not None:
+                approvingManager = get_employeeName(approvingManager, cursor)
+                
+        # end, resume to manager TO UI
+        connection.close() 
+        print(pendingTable)
+        view_all_time_off_UI(priorMondayDateStr, mngrID, 'pending', lastStartDate)    # 'all' or 'pending'
+
+    else:
+        print("err: invalid listType")
+
+    print("Leaving view_all_time_off")
+    return
 
 
 #------------MY TIME OFF VIEW (Employee)----------------
-def view_my_time_off(startDateStr, empID):
+def view_my_time_off(priorMondayDateStr, empID):
     # get an employee's active time-off requests from microservice
     msg = ['E', empID]
     socket.send_json(msg)       # through ZeroMQ
@@ -373,7 +381,7 @@ def view_my_time_off(startDateStr, empID):
     table = PrettyTable(["Start Date", "End Date", "Status", "Updated by", "Time Off Reason"])
 
     for request in requests:
-        empID, startDate, endDate, reason, approvingManager, approved = request
+        empIDNotUsed, startDate, endDate, reason, approvingManager, approved = request
         
         # determine the status based on 'approved' and 'approvingManager'
         if approved:
@@ -393,9 +401,51 @@ def view_my_time_off(startDateStr, empID):
 
     print(table)
 
+    view_my_time_off_UI(priorMondayDateStr, empID)
+    print("Leaving view_my_time_off")
+    return
 
+#------------REQUEST NEW TIME OFF (Employee)----------------
+def request_new_time_off(priorMondayDateStr, empID):
+    inputStartDate  = input("Time Off Start Date : ")
+    inputEndDate    = input("Time Off End Date   : ")
+    inputReason     = input("Reason (optional)   : ")
+    
+    # msg = ['C', [3, '2024-05-01', '2024-05-03', 'reas lo']] test data
+    msg = ['C', [empID, inputStartDate, inputEndDate, inputReason]]
+    socket.send_json(msg)       # through ZeroMQ
+    socket.recv_json()
+    print("Saved! Time Off Requested.")
 
+    view_my_time_off(priorMondayDateStr, empID)
+    print("Leaving request_new_time_off")
+    return
+    
+#------------UPDATE A TIME OFF (Manager)----------------
+def update_time_off_status(priorMondayDateStr, mngrID):
+    print("Updating Shifts Status, type \'q\' to quit")
+    c = 0
+    reqID  = 0
+    status = 0
+    while reqID != 'q' and status != 'q':
+        reqID  = input("reqID: ")
+        if reqID  == 'q': continue
 
+        status  = input("Status (a/d): ")
+        if status == 'q': continue
+
+        if   status == 'a': status = True
+        elif status == 'd': status = False
+        else: print("Invalid status; type \'a\' for Approve or \'d\' for Deny")
+        msg = ['U', [reqID, mngrID, status]]
+        socket.send_json(msg)       # through ZeroMQ
+        socket.recv_json()
+
+        c+=1 # c++ :D
+    print("Updated",c,"shifts","\n")
+    view_all_time_off_UI(priorMondayDateStr, mngrID, 'pending')    # 'all' or 'pending'
+    print("Leaving update_time_off_status")
+    return
 
 #------------F----------------
 def message_manager():
@@ -414,7 +464,7 @@ def quit_program():
 #------------I----------------
 def default():
     print("Invalid choice.")
-
+    return
 
 
 #------------------------------------------------------------------------------
@@ -457,9 +507,10 @@ def main_UI():
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
+    print("")
 
     menu_option(inputChoice)
-
+    return
 
 
 #------------ALL SHIFTS - PREV WEEK - MENU UI (view all shifts for the previous relative week)----------------
@@ -501,9 +552,10 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
+    print("")
 
     menu_option(inputChoice)
-
+    return
 
 
 #------------MY SHIFTS MENU UI (display options available)----------------
@@ -531,9 +583,10 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
+    print("")
 
     menu_option(inputChoice)
-
+    return
 
 
 #------------EDIT MY SHIFT MENU UI (display options available)----------------
@@ -541,13 +594,11 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
 #------------SWITCH SHIFTS MENU UI (display options available)----------------
 
 #------------TIME OFF MENU UI EMPLOYEE (display options available)----------------
-def view_time_off_UI(priorMondayDateStr, empID):
+def view_my_time_off_UI(priorMondayDateStr, empID):
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
-            '1': lambda: view_all_shifts(priorMondayDateStr),
-            '2': lambda: view_my_shifts_caller(priorMondayDateStr),
-            '3': lambda: view_time_off_caller(priorMondayDateStr),
+            '1': lambda: request_new_time_off(priorMondayDateStr, empID),
             'm': lambda: message_manager(),
             'b': lambda: back(),
             'q': lambda: quit_program()
@@ -556,27 +607,26 @@ def view_time_off_UI(priorMondayDateStr, empID):
         return switcher.get(inputChoice, default)()
 
     print("Viewing Time Off")
-    print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
-    print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
-    print("3 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("1 | Request New Time Off [WIP]")
     print("m | Message a manager [WIP]      | For any questions or other requests!")
-    print("b | Back [WIP]")
-    print("q | Quit")
+    print("b | Back")
+    print("q | Quit")  
     inputChoice = input("Input: ")
+    print("")
 
     menu_option(inputChoice)
-
-
+    return
 
 #------------TIME OFF MENU UI MANAGER (display options available)----------------
-def view_time_off_UI(priorMondayDateStr, empID):
+def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDate=None):
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
-            '3': lambda: view_time_off_caller(priorMondayDateStr,'all'),
-            '4': lambda: view_time_off_caller(priorMondayDateStr,'pending'),
+            '3': lambda: view_time_off_caller(priorMondayDateStr,'all', mngrID),
+            '4': lambda: view_time_off_caller(priorMondayDateStr,'pending', mngrID),
+            '5': lambda: update_time_off_status(priorMondayDateStr, mngrID),
             'b': lambda: back(),
             'q': lambda: quit_program()
         }
@@ -586,14 +636,20 @@ def view_time_off_UI(priorMondayDateStr, empID):
     print("Viewing Time Off")
     print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
-    print("- | All Time off [Here!]         | To see your upcoming time off requests and status")
-    print("4 | Pending Time off             | To see only future time off with status \'Pending\'")
+    if listType == 'all':
+        print("3 | All Time off [Here!]         | Recall this table to view it with/without an end date")
+        print("4 | Pending Time off             | To see only future time off with status \'Pending\'")
+    elif listType == 'pending':
+        print("3 | All Time off                 | To see your upcoming time off requests and status")
+        print("4 | Pending Time off [Here!]     | Recall this table to view it with/without an end date")
+    print("5 | Appove/Deny a Request [WIP]")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
+    print("")
 
     menu_option(inputChoice)
-
+    return
 
 
 #------------MNGR TIME OFF MENU UI (display options available)----------------
