@@ -440,10 +440,125 @@ def update_time_off_status(priorMondayDateStr, mngrID):
     print("Leaving update_time_off_status")
     return
 
-#------------F----------------
-def message_manager():
 
-    return 0
+
+
+#------------Message a manager       CALLER (checks if worker or manager, ----------------
+def message_manager_caller(priorMondayDateStr):
+    inputID = input("Employee ID: ")
+        
+    # check if the INPUT ID is a manager
+    if is_manager(inputID):
+        # open db for password check
+        connection = sqlite3.connect('employeeShifts.db')
+        cursor = connection.cursor()
+
+        correctPassword = False
+        while not correctPassword:
+            print("Enter Manager Password (or q to quit)    **press any key (password is omit for assignment)**")
+            inputPassword = input("Password: ")
+            if inputPassword == 'q':
+                print("Quitting")
+                return 0
+            else:
+                correctPassword = is_correct_password(inputPassword)
+
+        connection.close()  # close db
+
+    # if password correct or a non-manager
+    message_manager(priorMondayDateStr, inputID)   # if manager, inputID (self) will be a manager
+    return
+    
+def message_manager(priorMondayDateStr, empID):
+    manager = is_manager(empID) # bool
+    # open db
+    connection = sqlite3.connect('employeeShifts.db')
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT messageID, empID, mngrID, timestamp, messageBody FROM messages")
+    messages = cursor.fetchall()
+    rowData = []
+
+    # if no ID passed in, ask for one
+    if manager:   # for managers
+        mngrID = empID
+
+        # messageTable headers
+        messageTable = PrettyTable(["messageID", "Employee", "Timestamp", "Message"])
+
+        for message in messages:
+            messageID, tableEmpID, tableMngrID, timestamp, messageBody = message
+            print("mngr",tableMngrID, mngrID)
+            if str(tableMngrID) == mngrID: # grab only messages for this manager
+                mngrName = get_employeeName(tableEmpID, cursor)
+
+                # add row to messageTable
+                messageTable.add_row([messageID, mngrName, timestamp, messageBody])
+        print(messageTable)      
+    elif not manager:
+        # show all messages for me (where empID = tableEmpID)
+                # messageTable headers
+        messageTable = PrettyTable(["messageID", "Manager", "Timestamp", "Message"])
+
+        for message in messages:
+            messageID, tableEmpID, tableMngrID, timestamp, messageBody = message
+            print("emp",tableEmpID, empID)
+            if str(tableEmpID) == empID: # grab only messages for this worker
+                empName = get_employeeName(tableEmpID, cursor)
+                print("empName",empName)
+
+                # add row to messageTable
+                messageTable.add_row([messageID, empName, timestamp, messageBody])
+        print(messageTable)      
+    else:
+        print("err: employeeID invalid?")
+        return
+    
+
+    # prompt to send a reply  
+    inputRecipient = ""
+    inputMessage = ""
+    print("Send Reply,  or \'q\' to quit") # outside loop so all others can prompt for undo message send
+    if manager: inputRecipient = input("Send to employeeID: ")
+    elif not manager: inputRecipient = input("Send to managerID: ")
+    while inputRecipient != 'q' and inputMessage != 'q':
+
+        # below are now above and at bottom of loop to handle the 'undo' case
+        # inputRecipient = input("Message to empID: ")
+        # if inputRecipient  == 'q': continue
+        
+        inputMessage   = input("Message: ")
+        if inputRecipient  == 'q': continue
+
+        theTimeNow = datetime.now().isoformat(' ', 'seconds')
+
+        if manager:
+            cursor.execute("""INSERT INTO messages (empID, mngrID, messageBody, timestamp) 
+                VALUES (?, ?, ?, ?)""", (inputRecipient, mngrID, inputMessage, theTimeNow))
+        elif not manager: 
+            cursor.execute("""INSERT INTO messages (empID, mngrID, messageBody, timestamp) 
+                VALUES (?, ?, ?, ?)""", (empID, inputRecipient, inputMessage, theTimeNow))
+
+        # Get the last inserted messageID in case an undo is called
+        lastMessageID = cursor.lastrowid
+        connection.commit()    
+
+        print("Message sent to",get_employeeName(inputRecipient, cursor))
+        print("\nSend Another Message,  or \'q\' to quit,  or \'u\' to unsend last message")
+
+        if manager: inputRecipient = input("Send to employeeID: ")
+        elif not manager: inputRecipient = input("Send to managerID: ")
+        if inputRecipient  == 'u':  # 'undo' last message sent by deleting
+            cursor.execute("DELETE FROM messages WHERE messageID = ?", (lastMessageID,))
+            connection.commit()
+            print("Message Unsent")
+            print("\nSend Another Message,  or \'q\' to quit")
+            inputRecipient = input("Send to ID: ")
+        if inputRecipient  == 'q': continue
+        
+    connection.close()
+
+    return
 
 #------------G----------------
 # def back():
@@ -471,9 +586,8 @@ def default():
 #------------MAIN MENU UI (greet and display options available)----------------
 def main_UI():
     today = datetime.now()
-    lastWeek = today - timedelta(days=7)
-    nextWeek = today + timedelta(days=7)
-    today = nextWeek #TEMP
+    lastWeek = today - timedelta(days=7)    # manual adjustment for debug
+    nextWeek = today + timedelta(days=7)    # manual adjustment for debug
     # calc todays weekday (0=Monday, 1=Tuesday...6=Sunday)
     daysToMonday = today.weekday()
     priorMondayDate = today - timedelta(days=daysToMonday)
@@ -485,7 +599,7 @@ def main_UI():
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
             '3': lambda: view_time_off_caller(priorMondayDateStr),
-            'm': lambda: message_manager(),
+            'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
             'q': lambda: quit_program()
         }
@@ -496,7 +610,7 @@ def main_UI():
     print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("3 | Time off                     | To see your upcoming time off requests and status")
-    print("m | Message a manager [WIP]      | For any questions or other requests!")
+    print("m | Message a manager            | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -529,7 +643,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
             '2': lambda: view_all_next_week,
             '3': lambda: view_my_shifts_caller(priorMondayDateStr, empID),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
-            'm': lambda: message_manager,
+            'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back,
             'q': lambda: quit_program
         }
@@ -541,7 +655,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("2 | -> Next Week [WIP]")
     print("3 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("4 | Time off                     | To see your upcoming time off requests and status")
-    print("m | Message a manager [WIP]      | For any questions or other requests!")
+    print("m | Message a manager            | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -560,7 +674,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
             '2': lambda: view_all_next_week,
             '3': lambda: view_all_shifts(priorMondayDateStr),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
-            'm': lambda: message_manager,
+            'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back,
             'q': lambda: quit_program
         }
@@ -572,7 +686,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
     print("2 | -> Next Week [WIP]")
     print("3 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("4 | Time off                     | To see your upcoming time off requests and status")
-    print("m | Message a manager [WIP]      | For any questions or other requests!")
+    print("m | Message a manager            | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -592,16 +706,16 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
     def menu_option(inputChoice):
         switcher = {
             '1': lambda: request_new_time_off(priorMondayDateStr, empID),
-            'm': lambda: message_manager(),
+            'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
             'q': lambda: quit_program()
         }
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
 
-    print("Viewing Time Off")
+    print("Viewing my time off")
     print("1 | Request New Time Off")
-    print("m | Message a manager [WIP]      | For any questions or other requests!")
+    print("m | Message a manager            | For any questions or other requests!")
     print("b | Back")
     print("q | Quit")  
     inputChoice = input("Input: ")
@@ -624,7 +738,7 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
 
-    print("Viewing Time Off")
+    print("Viewing all time off")
     if listType == 'all':
         print("1 | All Time off         [Here!] | Recall this table to view it with/without an end date")
         print("2 | Pending Time off             | To see only future time off with status \'Pending\'")
