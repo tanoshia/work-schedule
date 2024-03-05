@@ -12,7 +12,6 @@ socket.connect('tcp://localhost:5555')
 print('connected to server')
 
 
-
 #------------HELPER FUNCTIONS (for shift displays)----------------
 def get_employeeName(empID, cursor): # assumes open db due to cursor parameter
     # Assumes employee table is named 'employees' with columns 'empID' and 'name'
@@ -249,13 +248,7 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
     # if no ID passed in, ask for one
     if empID:
         inputID = empID
-        # print("\n\naaaaaaa")
-        # print(empID)
-        # print("aaaaaaa\n\n")
     else:
-        # print("\n\nbbbbbbb")
-        # print(empID)
-        # print("bbbbbbb\n\n")
         inputID = input("Employee ID: ")
         
     
@@ -407,9 +400,9 @@ def view_my_time_off(priorMondayDateStr, empID):
 
 #------------REQUEST NEW TIME OFF (Employee)----------------
 def request_new_time_off(priorMondayDateStr, empID):
-    inputStartDate  = input("Time Off Start Date : ")
-    inputEndDate    = input("Time Off End Date   : ")
-    inputReason     = input("Reason (optional)   : ")
+    inputStartDate  = input("Time Off Start Date [YYYY-MM-DD]: ")
+    inputEndDate    = input("Time Off End Date   [YYYY-MM-DD]: ")
+    inputReason     = input("Reason (optional): ")
     
     # msg = ['C', [3, '2024-05-01', '2024-05-03', 'reas lo']] test data
     msg = ['C', [empID, inputStartDate, inputEndDate, inputReason]]
@@ -453,11 +446,11 @@ def message_manager():
     return 0
 
 #------------G----------------
-def back():
+# def back():
+ # relocated to end of file?
+#     return 0
 
-    return 0
-
-#------------H----------------
+#------------QUIT PROGRAM----------------
 def quit_program():
     return
 
@@ -502,7 +495,7 @@ def main_UI():
     print("Schedule Viewer 9000")
     print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
-    print("3 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("3 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
@@ -547,7 +540,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("1 | <- Previous Week [WIP]")
     print("2 | -> Next Week [WIP]")
     print("3 | My Shifts                    | View in detial and edit your upcoming shifts")
-    print("4 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
@@ -578,7 +571,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
     print("1 | <- Previous Week [WIP]")
     print("2 | -> Next Week [WIP]")
     print("3 | All Shifts                   | View shifts for all employees for the upcoming week")
-    print("4 | Time off (+Pending) [WIP]    | To see your upcoming time off requests and status")
+    print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back [WIP]")
     print("q | Quit")
@@ -607,7 +600,7 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
         return switcher.get(inputChoice, default)()
 
     print("Viewing Time Off")
-    print("1 | Request New Time Off [WIP]")
+    print("1 | Request New Time Off")
     print("m | Message a manager [WIP]      | For any questions or other requests!")
     print("b | Back")
     print("q | Quit")  
@@ -622,11 +615,9 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
-            '1': lambda: view_all_shifts(priorMondayDateStr),
-            '2': lambda: view_my_shifts_caller(priorMondayDateStr),
-            '3': lambda: view_time_off_caller(priorMondayDateStr,'all', mngrID),
-            '4': lambda: view_time_off_caller(priorMondayDateStr,'pending', mngrID),
-            '5': lambda: update_time_off_status(priorMondayDateStr, mngrID),
+            '1': lambda: view_time_off_caller(priorMondayDateStr,'all', mngrID),
+            '2': lambda: view_time_off_caller(priorMondayDateStr,'pending', mngrID),
+            '3': lambda: update_time_off_status(priorMondayDateStr, mngrID),
             'b': lambda: back(),
             'q': lambda: quit_program()
         }
@@ -634,15 +625,13 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
         return switcher.get(inputChoice, default)()
 
     print("Viewing Time Off")
-    print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
-    print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
     if listType == 'all':
-        print("3 | All Time off [Here!]         | Recall this table to view it with/without an end date")
-        print("4 | Pending Time off             | To see only future time off with status \'Pending\'")
+        print("1 | All Time off         [Here!] | Recall this table to view it with/without an end date")
+        print("2 | Pending Time off             | To see only future time off with status \'Pending\'")
     elif listType == 'pending':
-        print("3 | All Time off                 | To see your upcoming time off requests and status")
-        print("4 | Pending Time off [Here!]     | Recall this table to view it with/without an end date")
-    print("5 | Appove/Deny a Request [WIP]")
+        print("1 | All Time off                 | To see your upcoming time off requests and status")
+        print("2 | Pending Time off     [Here!] | Recall this table to view it with/without an end date")
+    print("3 | Appove/Deny a Request")
     print("b | Back [WIP]")
     print("q | Quit")
     inputChoice = input("Input: ")
@@ -657,6 +646,17 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
 
 
 
+
+
+#------------Function/Menu History (GLOBAL) (for backtracking)----------------
+MENU_HISTORY = [main_UI]
+
+def back():
+    if MENU_HISTORY:
+        print("Prev1", MENU_HISTORY)
+        previous_menu = MENU_HISTORY.pop()  # Remove and return the last visited menu
+        print("Prev1", previous_menu)
+        previous_menu()  # Call the previous menu function
 
 
 main_UI()
