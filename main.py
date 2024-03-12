@@ -80,17 +80,38 @@ def is_correct_password(inputPassword):
     return True
 
 
+
+
+
+
 #------------ALL SHIFTS (Create/update and display view)----------------
 def view_all_shifts(startDateStr):
+    startDate = datetime.strptime(startDateStr, '%Y-%m-%d') # str to date, to add time on
+    endDate = startDate + timedelta(days=7)
+    endDateStr = endDate.strftime('%Y-%m-%d')
+
+    # get time off for this week:
+    msg = ['M', endDateStr]
+    socket.send_json(msg)       # through ZeroMQ
+    requests = socket.recv_json()
+
+    approvedTimeOff = {}  # {empID: [list of dates]}
+    for request in requests:
+        TOrequestID, TOempID, TOstartDate, TOendDate, TOreason, TOapprovingManager, TOapproved = request
+        if TOapproved:
+            if TOempID not in approvedTimeOff:
+                approvedTimeOff[TOempID] = []
+            start_date = datetime.strptime(TOstartDate, '%Y-%m-%d')
+            end_date = datetime.strptime(TOendDate, '%Y-%m-%d')
+            current_date = start_date
+            while current_date <= end_date:
+                approvedTimeOff[TOempID].append(current_date.strftime('%Y-%m-%d'))
+                current_date += timedelta(days=1)
+
     # open database
     connection = sqlite3.connect('employeeShifts.db')
     cursor = connection.cursor()
-
-    # into message, fetch employee count
-    cursor.execute("SELECT COUNT(DISTINCT empID) FROM empShifts")
-    empCount = cursor.fetchone()[0]
-    print(f"Displaying shifts for all {empCount} employees during the week of {startDateStr}")
-
+    
     # get oldest shift date in db to validate input
     cursor.execute("SELECT MIN(shiftDate) FROM empShifts")
     oldestShiftDateTuple = cursor.fetchone()
@@ -105,50 +126,65 @@ def view_all_shifts(startDateStr):
 
         if startDateObj < oldestShiftDateObj:
             print(f"No Shifts before this date! Earliest shift to view is {oldestShiftDateStr}")
+            print()
+            view_all_shifts_UI(startDateStr)
+            # print("Leaving view_all_shifts")
+            return
 
-    #connect rows to all empShifts rows between start abd end date (start date6)
-    sqlQuery = "SELECT empID, shiftDate, startTime, endTime FROM empShifts WHERE shiftDate >= ? AND shiftDate <= ? ORDER BY empID, shiftDate, startTime"
-    cursor.execute(sqlQuery, (startDateStr, endDateStr))
-    shiftsData = cursor.fetchall()
-    # db remains open to use get_employeeName from their ID, otherwise could close here
+    # into message, fetch employee count
+    cursor.execute("SELECT COUNT(DISTINCT empID) FROM empShifts")
+    empCount = cursor.fetchone()[0]
+    print(f"Displaying shifts for all {empCount} employees during the week of {startDateStr}")
 
+    # Fetch all employees to initialize the table rows
+    cursor.execute("SELECT empID, name FROM employees ORDER BY empID")
+    allEmployees = cursor.fetchall()
 
+    # setup table
     headers = ["Employee"] + generate_weekdays(startDateStr)
     table = PrettyTable(headers)
+    employeeRows = {empID: [name] + ["-"] * 7 for empID, name in allEmployees}
+
 
     # process shift data
     currentEmpID = None
     rowData = []
 
-    for empID, shiftDate, startTime, endTime in shiftsData: #dates as string
-        if empID != currentEmpID:
-            # if new employee, add the prior emp data to the table
-            if currentEmpID is not None:
-                table.add_row(rowData)
-            
-            # fetch employees name
-            employeeName = get_employeeName(empID, cursor)
-            currentEmpID = empID
-            # start new row for new emp
-            rowData = [employeeName] + ["-"] * 7  # initialize with placeholders
 
-        # format shiftDate for matching headers
-        shiftDateFormatted = generate_weekday(shiftDate)
+    #connect rows to all empShifts rows between start abd end date (start date6)
+    sqlQuery = """SELECT empID, shiftDate, startTime, endTime FROM empShifts 
+                  WHERE shiftDate >= ? AND shiftDate <= ? 
+                  ORDER BY empID, shiftDate, startTime"""
+    cursor.execute(sqlQuery, (startDateStr, endDateStr))
+    shiftsData = cursor.fetchall()
+    # db remains open to use get_employeeName from their ID, otherwise could close here
 
-        # find the day index, then update the row data
-        dayIndex = headers.index(shiftDateFormatted)
-        rowData[dayIndex] = simplify_shiftTime(startTime, endTime) # adds string '8am-4:30pm' for '08:00-16:30' to row at index
+    for empID, shiftDate, startTime, endTime in shiftsData:
+        dayIndex = headers.index(generate_weekday(shiftDate))
+        if empID in approvedTimeOff and shiftDate in approvedTimeOff[empID]:
+            employeeRows[empID][dayIndex] = "Time Off"
+        else:
+            employeeRows[empID][dayIndex] = simplify_shiftTime(startTime, endTime)
 
-    # add the last emp data
-    if rowData:
-        table.add_row(rowData)
+    # Update rows for employees with time off but no shifts
+    for empID, dates in approvedTimeOff.items():
+        for date in dates:
+            if date >= startDateStr and date <= endDateStr:
+                dayIndex = headers.index(generate_weekday(date))
+                employeeRows[empID][dayIndex] = "Time Off"
+
+    # Add rows to the table
+    for row in employeeRows.values():
+        table.add_row(row)
+
+
 
     #close database
     connection.close()
 
     print(table)
     view_all_shifts_UI(startDateStr)
-    print("Leaving view_all_shifts")
+    # print("Leaving view_all_shifts")
     return
 
 
@@ -159,7 +195,7 @@ def view_all_shifts(startDateStr):
 def view_my_shifts_caller(priorMondayDateStr, inputID=0):
     inputID = input("Employee ID: ")
     view_my_shifts(priorMondayDateStr, inputID)
-    print("Leaving view_my_shifts_caller")
+    # print("Leaving view_my_shifts_caller")
     return
 
 
@@ -201,6 +237,9 @@ def view_my_shifts(startDateStr, empID):
 
         if startDateObj < oldestShiftDateObj:
             print(f"No Shifts before this date! Earliest shift to view is {oldestShiftDateStr}")
+            view_my_shifts_UI(startDateStr, empID)
+            # print("Leaving view_my_shifts")
+            return
     
 
     #connect rows to all empShifts rows between start abd end date (start date+6)
@@ -238,8 +277,11 @@ def view_my_shifts(startDateStr, empID):
     
     print(table)
     view_my_shifts_UI(startDateStr, empID)
-    print("Leaving view_my_shifts")
+    # print("Leaving view_my_shifts")
     return
+
+
+
 
 
 
@@ -256,6 +298,7 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
     if is_manager(empID):   # if the PASSED IN ID is a manager, they've already typed password, thus skip next
         inputLastStartDate = input("End Date (blank for no date cap)\n[YYYY-MM-DD]: ")
         view_all_time_off(priorMondayDateStr, inputID, listType, inputLastStartDate)
+        # print("Leaving view_time_off_caller")
         return
     # check if the INPUT ID is a manager
     if is_manager(inputID):
@@ -281,7 +324,7 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
     else: 
         view_my_time_off(priorMondayDateStr, inputID)   # for non-managers
     
-    print("Leaving view_time_off_caller")
+    # print("Leaving view_time_off_caller")
     return
 
 
@@ -354,7 +397,7 @@ def view_all_time_off(priorMondayDateStr, mngrID, listType, lastStartDate=None):
     else:
         print("err: invalid listType")
 
-    print("Leaving view_all_time_off")
+    # print("Leaving view_all_time_off")
     return
 
 
@@ -395,7 +438,7 @@ def view_my_time_off(priorMondayDateStr, empID):
     print(table)
 
     view_my_time_off_UI(priorMondayDateStr, empID)
-    print("Leaving view_my_time_off")
+    # print("Leaving view_my_time_off")
     return
 
 #------------REQUEST NEW TIME OFF (Employee)----------------
@@ -404,18 +447,17 @@ def request_new_time_off(priorMondayDateStr, empID):
     inputEndDate    = input("Time Off End Date   [YYYY-MM-DD]: ")
     inputReason     = input("Reason (optional): ")
     
-    # msg = ['C', [3, '2024-05-01', '2024-05-03', 'reas lo']] test data
     msg = ['C', [empID, inputStartDate, inputEndDate, inputReason]]
     socket.send_json(msg)       # through ZeroMQ
     socket.recv_json()
     print("Saved! Time Off Requested.")
 
     view_my_time_off(priorMondayDateStr, empID)
-    print("Leaving request_new_time_off")
+    # print("Leaving request_new_time_off")
     return
     
 #------------UPDATE A TIME OFF (Manager)----------------
-def update_time_off_status(priorMondayDateStr, mngrID):
+def update_time_off_status(priorMondayDateStr, mngrID, listType):
     print("Updating Shifts Status, type \'q\' to quit")
     c = 0
     reqID  = 0
@@ -436,8 +478,8 @@ def update_time_off_status(priorMondayDateStr, mngrID):
 
         c+=1 # c++ :D
     print("Updated",c,"shifts","\n")
-    view_all_time_off_UI(priorMondayDateStr, mngrID, 'pending')    # 'all' or 'pending'
-    print("Leaving update_time_off_status")
+    view_all_time_off_UI(priorMondayDateStr, mngrID, listType)    # listType is 'all' or 'pending'
+    # print("Leaving update_time_off_status")
     return
 
 
@@ -467,6 +509,7 @@ def message_manager_caller(priorMondayDateStr):
 
     # if password correct or a non-manager
     message_manager(priorMondayDateStr, inputID)   # if manager, inputID (self) will be a manager
+    # print("Leaving message_manager_caller")
     return
     
 def message_manager(priorMondayDateStr, empID):
@@ -558,6 +601,8 @@ def message_manager(priorMondayDateStr, empID):
         
     connection.close()
 
+    main_UI()
+    # print("Leaving message_manager_caller")
     return
 
 #------------G----------------
@@ -588,6 +633,9 @@ def main_UI():
     today = datetime.now()
     lastWeek = today - timedelta(days=7)    # manual adjustment for debug
     nextWeek = today + timedelta(days=7)    # manual adjustment for debug
+    nextNextWeek = today + timedelta(days=7)# manual adjustment for debug
+    today = nextWeek                        # manual adjustment for debug
+    nextWeek = nextNextWeek                 # manual adjustment for debug
     # calc todays weekday (0=Monday, 1=Tuesday...6=Sunday)
     daysToMonday = today.weekday()
     priorMondayDate = today - timedelta(days=daysToMonday)
@@ -598,6 +646,7 @@ def main_UI():
         switcher = {
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
+                    # goNext = view_my_shifts_UI(),
             '3': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
@@ -617,6 +666,7 @@ def main_UI():
     print("")
 
     menu_option(inputChoice)
+    # print("Leaving main_UI")
     return
 
 
@@ -636,11 +686,17 @@ def view_all_next_week():
 
 #------------ALL SHIFTS MENU UI (display options available)----------------
 def view_all_shifts_UI(priorMondayDateStr, empID=0):
+    priorMondayDate = datetime.strptime(priorMondayDateStr, '%Y-%m-%d') # str to date, to add time on
+    lastPriorMondayDate = priorMondayDate - timedelta(days=7)   # for view_all_prev_week
+    nextPriorMondayDate = priorMondayDate + timedelta(days=7)   # for view_all_next_week
+
+    priorMondayDateStr = priorMondayDate.strftime('%Y-%m-%d')
+
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
-            '1': lambda: view_all_prev_week,
-            '2': lambda: view_all_next_week,
+            '1': lambda: view_all_shifts(lastPriorMondayDate.strftime('%Y-%m-%d')),
+            '2': lambda: view_all_shifts(nextPriorMondayDate.strftime('%Y-%m-%d')),
             '3': lambda: view_my_shifts_caller(priorMondayDateStr, empID),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
@@ -651,8 +707,8 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
         return switcher.get(inputChoice, default)()
 
     print("Viewing all employee shifts")
-    print("1 | <- Previous Week [WIP]")
-    print("2 | -> Next Week [WIP]")
+    print("1 | <- Previous Week")
+    print("2 | -> Next Week")
     print("3 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager            | For any questions or other requests!")
@@ -662,16 +718,24 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("")
 
     menu_option(inputChoice)
+    # print("Leaving view_all_shifts_UI")
     return
+
 
 
 #------------MY SHIFTS MENU UI (display options available)----------------
 def view_my_shifts_UI(priorMondayDateStr, empID):
+    priorMondayDate = datetime.strptime(priorMondayDateStr, '%Y-%m-%d') # str to date, to add time on
+    lastPriorMondayDate = priorMondayDate - timedelta(days=7)   # for view_all_prev_week
+    nextPriorMondayDate = priorMondayDate + timedelta(days=7)   # for view_all_next_week
+    
+    priorMondayDateStr = priorMondayDate.strftime('%Y-%m-%d')
+
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
-            '1': lambda: view_all_prev_week,
-            '2': lambda: view_all_next_week,
+            '1': lambda: view_my_shifts(lastPriorMondayDate.strftime('%Y-%m-%d'), empID), # bypassing caller as empID is known
+            '2': lambda: view_my_shifts(nextPriorMondayDate.strftime('%Y-%m-%d'), empID), # bypassing caller as empID is known
             '3': lambda: view_all_shifts(priorMondayDateStr),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
@@ -682,8 +746,8 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
         return switcher.get(inputChoice, default)()
 
     print("Viewing my shifts")
-    print("1 | <- Previous Week [WIP]")
-    print("2 | -> Next Week [WIP]")
+    print("1 | <- Previous Week")
+    print("2 | -> Next Week [WIP]") # add earliest shift but for this employee only
     print("3 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager            | For any questions or other requests!")
@@ -693,6 +757,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
     print("")
 
     menu_option(inputChoice)
+    # print("Leaving view_my_shifts_UI")
     return
 
 
@@ -705,6 +770,7 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
+            '0': lambda: main_UI(),
             '1': lambda: request_new_time_off(priorMondayDateStr, empID),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
@@ -714,7 +780,8 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
         return switcher.get(inputChoice, default)()
 
     print("Viewing my time off")
-    print("1 | Request New Time Off")
+    print("0 | Home                         | Temp while I get back() working")
+    print("1 | Request New Time Off         | Submit a new request for time off with \'status\' pending manager approval")
     print("m | Message a manager            | For any questions or other requests!")
     print("b | Back")
     print("q | Quit")  
@@ -722,6 +789,7 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
     print("")
 
     menu_option(inputChoice)
+    # print("Leaving view_my_time_off_UI")
     return
 
 #------------TIME OFF MENU UI MANAGER (display options available)----------------
@@ -731,7 +799,7 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
         switcher = {
             '1': lambda: view_time_off_caller(priorMondayDateStr,'all', mngrID),
             '2': lambda: view_time_off_caller(priorMondayDateStr,'pending', mngrID),
-            '3': lambda: update_time_off_status(priorMondayDateStr, mngrID),
+            '3': lambda: update_time_off_status(priorMondayDateStr, mngrID, listType),
             'b': lambda: back(),
             'q': lambda: quit_program()
         }
@@ -752,6 +820,7 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
     print("")
 
     menu_option(inputChoice)
+    # print("Leaving view_all_time_off_UI")
     return
 
 
