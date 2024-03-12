@@ -37,11 +37,15 @@ create_time_off(3, '2024-01-02', '2024-01-03', 'reason-Ethan-1')
 create_time_off(3, '2024-04-11', '2024-04-14', 'reason-Ethan-2')
 create_time_off(1, '2024-04-21', '2024-04-23', 'reason-Brett-1')
 create_time_off(3, '2024-04-14', '2024-04-22', 'reason-Ethan-3')
-create_time_off(3, '2024-05-11', '2024-06-12', 'reason-Ethan-4-D') #id 3? 4?
+create_time_off(3, '2024-05-11', '2024-06-12', 'deny-this-Ethan-4')
 create_time_off(3, '2024-05-11', '2024-05-12', 'reason-Ethan-5')
+create_time_off(1, '2024-03-19', '2024-03-19', 'Wedding') #shown in next week
+create_time_off(4, '2024-03-28', '2024-03-31', 'Vacay') #shown in next week
 create_time_off(3, '2024-06-13', '2024-06-15', 'reason-Ethan-6')
 create_time_off(3, '2024-06-17', '2024-06-18', 'reason-Ethan-7')
-update_time_off(3, 1, False)
+update_time_off(4, 1, False)
+update_time_off(7, 1, True)
+update_time_off(8, 1, True)
 
 
 
