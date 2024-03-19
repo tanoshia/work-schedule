@@ -83,6 +83,15 @@ def is_correct_password(inputPassword):
     return True
 
 
+def is_input_quit_or_back(input):
+    if (input == 'q' or input == 'Q'):
+        quit_program()
+        return True
+    elif (input == 'b' or input == 'B'):
+        back()
+        return True
+    else:
+        return False
 
 
 
@@ -199,10 +208,7 @@ def view_all_shifts(startDateStr):
 def view_my_shifts_caller(priorMondayDateStr, inputID=0):
     MENU_HISTORY.append((view_my_shifts_caller, priorMondayDateStr, inputID))
     inputID = input("Employee ID: ")
-    if (inputID == 'q'):
-        quit()
-    elif (inputID == 'b'):
-        back()
+    is_input_quit_or_back(inputID)
     view_my_shifts(priorMondayDateStr, inputID)
     # print("Leaving view_my_shifts_caller")
     return
@@ -301,10 +307,8 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
         inputID = empID
     else:
         inputID = input("Employee ID: ")
-        if (inputID == 'q'):
-            quit()
-        elif (inputID == 'b'):
-            back()
+    if (is_input_quit_or_back(inputID)):
+        return
             
     
     # check if the PASSED IN ID is a manager
@@ -323,9 +327,8 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
         while not correctPassword:
             print("Enter Manager Password (or q to quit)    **press any key (password is omit for assignment)**")
             inputPassword = input("Password: ")
-            if inputPassword == 'q':
-                print("Quitting")
-                return 0
+            if (is_input_quit_or_back(inputPassword)):
+                return
             else:
                 correctPassword = is_correct_password(inputPassword)
 
@@ -464,7 +467,7 @@ def request_new_time_off(priorMondayDateStr, empID):
     inputReason     = input("Reason (optional): ")
 
     if (inputStartDate == 'q' or inputEndDate == 'q' or inputReason == 'q'):
-        quit()
+        quit_program()
     elif (inputStartDate == 'b' or inputEndDate == 'b' or inputReason == 'b'):
         back()
         return
@@ -490,11 +493,11 @@ def update_time_off_status(priorMondayDateStr, mngrID, listType):
     status = 0
     while reqID != 'q' and status != 'q':
         reqID  = input("reqID: ")
-        if reqID  == 'q': continue
-
+        if (is_input_quit_or_back(reqID)):
+            continue
         status  = input("Status (a/d): ")
-        if status == 'q': continue
-
+        if (is_input_quit_or_back(status)):
+            continue
         if   status == 'a': status = True
         elif status == 'd': status = False
         else: print("Invalid status; type \'a\' for Approve or \'d\' for Deny")
@@ -514,10 +517,8 @@ def update_time_off_status(priorMondayDateStr, mngrID, listType):
 #------------Message a manager       CALLER (checks if worker or manager, ----------------
 def message_manager_caller(priorMondayDateStr):
     inputID = input("Employee ID: ")
-    if (inputID == 'q'):
-        quit()
-    elif (inputID == 'b'):
-        back()
+    if (is_input_quit_or_back(inputID)):
+        return
 
     # check if the INPUT ID is a manager
     if is_manager(inputID):
@@ -529,9 +530,8 @@ def message_manager_caller(priorMondayDateStr):
         while not correctPassword:
             print("Enter Manager Password (or q to quit)    **press any key (password is omit for assignment)**")
             inputPassword = input("Password: ")
-            if inputPassword == 'q':
-                print("Quitting")
-                return 0
+            if (is_input_quit_or_back(inputPassword)):
+                return
             else:
                 correctPassword = is_correct_password(inputPassword)
 
@@ -592,18 +592,17 @@ def message_manager(priorMondayDateStr, empID):
     # prompt to send a reply  
     inputRecipient = ""
     inputMessage = ""
-    print("Send Reply,  or \'q\' to quit") # outside loop so all others can prompt for undo message send
+    print("Send Reply, (or \'b\' to return back | or \'q\' to quit)") # outside loop so all others can prompt for undo message send
     if manager: inputRecipient = input("Send to employeeID: ")
     elif not manager: inputRecipient = input("Send to managerID: ")
+    if (is_input_quit_or_back(inputRecipient)):
+        return
     while inputRecipient != 'q' and inputMessage != 'q':
 
         # below are now above and at bottom of loop to handle the 'undo' case
-        # inputRecipient = input("Message to empID: ")
-        # if inputRecipient  == 'q': continue
-        
         inputMessage   = input("Message: ")
-        if inputRecipient  == 'q': continue
-
+        if (is_input_quit_or_back(inputMessage)):
+            return
         theTimeNow = datetime.now().isoformat(' ', 'seconds')
 
         if manager:
@@ -618,7 +617,7 @@ def message_manager(priorMondayDateStr, empID):
         connection.commit()    
 
         print("Message sent to",get_employeeName(inputRecipient, cursor))
-        print("\nSend Another Message,  or \'q\' to quit,  or \'u\' to unsend last message")
+        print("\nSend Another Message? (or \'b\' to return back | \'q\' to quit | \'u\' to unsend last message)")
 
         if manager: inputRecipient = input("Send to employeeID: ")
         elif not manager: inputRecipient = input("Send to managerID: ")
@@ -626,13 +625,10 @@ def message_manager(priorMondayDateStr, empID):
             cursor.execute("DELETE FROM messages WHERE messageID = ?", (lastMessageID,))
             connection.commit()
             print("Message Unsent")
-            print("\nSend Another Message,  or \'q\' to quit")
+            print("\nSend Another Message? (or \'b\' to return back | \'q\' to quit)")
             inputRecipient = input("Send to ID: ")
-        if (inputRecipient == 'q'):
-            quit()
-        elif (inputRecipient == 'b'):
-            back()
-            return
+            if (is_input_quit_or_back(inputRecipient)):
+                return
             
     connection.close()
 
@@ -658,6 +654,8 @@ def back():
 def quit_program():
     global MENU_HISTORY
     MENU_HISTORY = [main_UI]
+    print("Quitting...\n")
+    print("Have a Great Day!")
     return
 
 #------------DEFAULT CHOICE (to customize when invalid switcher input)----------------
@@ -691,6 +689,7 @@ def main_UI():
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
+            'a': lambda: about(),
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
             '3': lambda: view_time_off_caller(priorMondayDateStr),
@@ -701,12 +700,13 @@ def main_UI():
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
 
-    print("Schedule Viewer 9000")
+    print("Portable Schedule Viewer")
+    print("0 | About                        | General information about this program!")
     print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("3 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager            | For any questions or other requests!")
-    print("b | Back [WIP]")
+    print("b | Back")
     print("q | Quit")
     inputChoice = input("Input: ")
     print("")
@@ -714,20 +714,6 @@ def main_UI():
     menu_option(inputChoice)
     # print("Leaving main_UI")
     return
-
-
-#------------ALL SHIFTS - PREV WEEK - MENU UI (view all shifts for the previous relative week)----------------
-def view_all_prev_week():
-
-    return 0
-
-
-
-#------------ALL SHIFTS - NEXT WEEK - MENU UI (view all shifts for the next relative week)----------------
-def view_all_next_week():
-
-    return 0
-
 
 
 #------------ALL SHIFTS MENU UI (display options available)----------------
@@ -747,7 +733,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
-            'q': lambda: quit_program
+            'q': lambda: quit_program()
         }
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
@@ -758,7 +744,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("3 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager            | For any questions or other requests!")
-    print("b | Back [WIP]")
+    print("b | Back")
     print("q | Quit")
     inputChoice = input("Input: ")
     print("")
@@ -786,18 +772,18 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
-            'q': lambda: quit_program
+            'q': lambda: quit_program()
         }
         # get function from switcher dict
         return switcher.get(inputChoice, default)()
 
     print("Viewing my shifts")
     print("1 | <- Previous Week")
-    print("2 | -> Next Week [WIP]") # add earliest shift but for this employee only
+    print("2 | -> Next Week") # add earliest shift but for this employee only
     print("3 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("4 | Time off                     | To see your upcoming time off requests and status")
     print("m | Message a manager            | For any questions or other requests!")
-    print("b | Back [WIP]")
+    print("b | Back")
     print("q | Quit")
     inputChoice = input("Input: ")
     print("")
@@ -816,7 +802,6 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
     # handle the menu options
     def menu_option(inputChoice):
         switcher = {
-            '0': lambda: main_UI(),
             '1': lambda: request_new_time_off(priorMondayDateStr, empID),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
@@ -826,7 +811,6 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
         return switcher.get(inputChoice, default)()
 
     print("Viewing my time off")
-    print("0 | Home                         | Temp while I get back() working")
     print("1 | Request New Time Off         | Submit a new request for time off with \'status\' pending manager approval")
     print("m | Message a manager            | For any questions or other requests!")
     print("b | Back")
@@ -860,7 +844,7 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
         print("1 | All Time off                 | To see your upcoming time off requests and status")
         print("2 | Pending Time off     [Here!] | Recall this table to view it with/without an end date")
     print("3 | Appove/Deny a Request")
-    print("b | Back [WIP]")
+    print("b | Back")
     print("q | Quit")
     inputChoice = input("Input: ")
     print("")
