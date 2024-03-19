@@ -11,6 +11,9 @@ socket = context.socket(zmq.REQ)
 socket.connect('tcp://localhost:5555')
 print('connected to server')
 
+#------------Menu History (GLOBAL) (for backtracking)----------------
+MENU_HISTORY = []
+
 
 #------------HELPER FUNCTIONS (for shift displays)----------------
 def get_employeeName(empID, cursor): # assumes open db due to cursor parameter
@@ -86,6 +89,7 @@ def is_correct_password(inputPassword):
 
 #------------ALL SHIFTS (Create/update and display view)----------------
 def view_all_shifts(startDateStr):
+    MENU_HISTORY.append((view_all_shifts, startDateStr))
     startDate = datetime.strptime(startDateStr, '%Y-%m-%d') # str to date, to add time on
     endDate = startDate + timedelta(days=7)
     endDateStr = endDate.strftime('%Y-%m-%d')
@@ -193,7 +197,12 @@ def view_all_shifts(startDateStr):
 
 #------------PERSONAL SHIFTS FUNCTION CALLER (call view_my_shifts after asking for who to search for)----------------
 def view_my_shifts_caller(priorMondayDateStr, inputID=0):
+    MENU_HISTORY.append((view_my_shifts_caller, priorMondayDateStr, inputID))
     inputID = input("Employee ID: ")
+    if (inputID == 'q'):
+        quit()
+    elif (inputID == 'b'):
+        back()
     view_my_shifts(priorMondayDateStr, inputID)
     # print("Leaving view_my_shifts_caller")
     return
@@ -292,7 +301,11 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
         inputID = empID
     else:
         inputID = input("Employee ID: ")
-        
+        if (inputID == 'q'):
+            quit()
+        elif (inputID == 'b'):
+            back()
+            
     
     # check if the PASSED IN ID is a manager
     if is_manager(empID):   # if the PASSED IN ID is a manager, they've already typed password, thus skip next
@@ -300,7 +313,7 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
         view_all_time_off(priorMondayDateStr, inputID, listType, inputLastStartDate)
         # print("Leaving view_time_off_caller")
         return
-    # check if the INPUT ID is a manager
+    # check if the INPUT ID is a manager then ask for password if so
     if is_manager(inputID):
         # open db for manager validation and password check
         connection = sqlite3.connect('employeeShifts.db')
@@ -330,6 +343,7 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
 
 #------------ALL TIME OFF VIEW (Manager)----------------
 def view_all_time_off(priorMondayDateStr, mngrID, listType, lastStartDate=None):      # for managers
+    MENU_HISTORY.append((view_all_time_off, priorMondayDateStr, mngrID, listType, lastStartDate))
     if lastStartDate == None or len(lastStartDate) < 1:    # if no end date
         # get all employee's active time-off requests from microservice
         msg = ['M']
@@ -403,6 +417,7 @@ def view_all_time_off(priorMondayDateStr, mngrID, listType, lastStartDate=None):
 
 #------------MY TIME OFF VIEW (Employee)----------------
 def view_my_time_off(priorMondayDateStr, empID):
+    MENU_HISTORY.append((view_my_time_off, priorMondayDateStr, empID))
     # get an employee's active time-off requests from microservice
     msg = ['E', empID]
     socket.send_json(msg)       # through ZeroMQ
@@ -443,9 +458,19 @@ def view_my_time_off(priorMondayDateStr, empID):
 
 #------------REQUEST NEW TIME OFF (Employee)----------------
 def request_new_time_off(priorMondayDateStr, empID):
+    MENU_HISTORY.append((request_new_time_off, priorMondayDateStr, empID))
     inputStartDate  = input("Time Off Start Date [YYYY-MM-DD]: ")
     inputEndDate    = input("Time Off End Date   [YYYY-MM-DD]: ")
     inputReason     = input("Reason (optional): ")
+
+    if (inputStartDate == 'q' or inputEndDate == 'q' or inputReason == 'q'):
+        quit()
+    elif (inputStartDate == 'b' or inputEndDate == 'b' or inputReason == 'b'):
+        back()
+        return
+    elif (not inputStartDate or not inputEndDate):
+        back()
+        return
     
     msg = ['C', [empID, inputStartDate, inputEndDate, inputReason]]
     socket.send_json(msg)       # through ZeroMQ
@@ -458,6 +483,7 @@ def request_new_time_off(priorMondayDateStr, empID):
     
 #------------UPDATE A TIME OFF (Manager)----------------
 def update_time_off_status(priorMondayDateStr, mngrID, listType):
+    MENU_HISTORY.append((update_time_off_status, priorMondayDateStr, mngrID, listType))
     print("Updating Shifts Status, type \'q\' to quit")
     c = 0
     reqID  = 0
@@ -488,7 +514,11 @@ def update_time_off_status(priorMondayDateStr, mngrID, listType):
 #------------Message a manager       CALLER (checks if worker or manager, ----------------
 def message_manager_caller(priorMondayDateStr):
     inputID = input("Employee ID: ")
-        
+    if (inputID == 'q'):
+        quit()
+    elif (inputID == 'b'):
+        back()
+
     # check if the INPUT ID is a manager
     if is_manager(inputID):
         # open db for password check
@@ -513,6 +543,7 @@ def message_manager_caller(priorMondayDateStr):
     return
     
 def message_manager(priorMondayDateStr, empID):
+    MENU_HISTORY.append((priorMondayDateStr, empID))
     manager = is_manager(empID) # bool
     # open db
     connection = sqlite3.connect('employeeShifts.db')
@@ -597,24 +628,39 @@ def message_manager(priorMondayDateStr, empID):
             print("Message Unsent")
             print("\nSend Another Message,  or \'q\' to quit")
             inputRecipient = input("Send to ID: ")
-        if inputRecipient  == 'q': continue
-        
+        if (inputRecipient == 'q'):
+            quit()
+        elif (inputRecipient == 'b'):
+            back()
+            return
+            
     connection.close()
 
     main_UI()
-    # print("Leaving message_manager_caller")
+    # print("Leaving message_manager")
     return
 
-#------------G----------------
-# def back():
- # relocated to end of file?
-#     return 0
+#------------GO BACK (to previous screen(s))----------------
+def back():
+    global MENU_HISTORY
+    if len(MENU_HISTORY) > 1:  # Ensure there's at least one previous state to go back to
+        print("\n\tGoing back...\n\n")
+        MENU_HISTORY.pop()  # Remove the current state
+        last_call = MENU_HISTORY[-1]  # Look at the last item in the history without removing it
+        
+        function, *args = last_call  # Unpack the function and its arguments
+        function(*args)  # Execute the function with its arguments
+    else:
+        print("No previous menu to return to.")
+
 
 #------------QUIT PROGRAM----------------
 def quit_program():
+    global MENU_HISTORY
+    MENU_HISTORY = [main_UI]
     return
 
-#------------I----------------
+#------------DEFAULT CHOICE (to customize when invalid switcher input)----------------
 def default():
     print("Invalid choice.")
     return
@@ -630,6 +676,7 @@ def default():
     
 #------------MAIN MENU UI (greet and display options available)----------------
 def main_UI():
+    MENU_HISTORY.append((main_UI,))
     today = datetime.now()
     lastWeek = today - timedelta(days=7)    # manual adjustment for debug
     nextWeek = today + timedelta(days=7)    # manual adjustment for debug
@@ -646,7 +693,6 @@ def main_UI():
         switcher = {
             '1': lambda: view_all_shifts(priorMondayDateStr),
             '2': lambda: view_my_shifts_caller(priorMondayDateStr),
-                    # goNext = view_my_shifts_UI(),
             '3': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
             'b': lambda: back(),
@@ -700,7 +746,7 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
             '3': lambda: view_my_shifts_caller(priorMondayDateStr, empID),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
-            'b': lambda: back,
+            'b': lambda: back(),
             'q': lambda: quit_program
         }
         # get function from switcher dict
@@ -739,7 +785,7 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
             '3': lambda: view_all_shifts(priorMondayDateStr),
             '4': lambda: view_time_off_caller(priorMondayDateStr),
             'm': lambda: message_manager_caller(priorMondayDateStr),
-            'b': lambda: back,
+            'b': lambda: back(),
             'q': lambda: quit_program
         }
         # get function from switcher dict
@@ -823,23 +869,6 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
     # print("Leaving view_all_time_off_UI")
     return
 
-
-#------------MNGR TIME OFF MENU UI (display options available)----------------
-
-
-
-
-
-
-#------------Function/Menu History (GLOBAL) (for backtracking)----------------
-MENU_HISTORY = [main_UI]
-
-def back():
-    if MENU_HISTORY:
-        print("Prev1", MENU_HISTORY)
-        previous_menu = MENU_HISTORY.pop()  # Remove and return the last visited menu
-        print("Prev1", previous_menu)
-        previous_menu()  # Call the previous menu function
 
 
 main_UI()
