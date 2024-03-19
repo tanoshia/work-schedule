@@ -141,7 +141,6 @@ def view_all_shifts(startDateStr):
             print(f"No Shifts before this date! Earliest shift to view is {oldestShiftDateStr}")
             print()
             view_all_shifts_UI(startDateStr)
-            # print("Leaving view_all_shifts")
             return
 
     # into message, fetch employee count
@@ -197,7 +196,6 @@ def view_all_shifts(startDateStr):
 
     print(table)
     view_all_shifts_UI(startDateStr)
-    # print("Leaving view_all_shifts")
     return
 
 
@@ -210,7 +208,6 @@ def view_my_shifts_caller(priorMondayDateStr, inputID=0):
     inputID = input("Employee ID: ")
     is_input_quit_or_back(inputID)
     view_my_shifts(priorMondayDateStr, inputID)
-    # print("Leaving view_my_shifts_caller")
     return
 
 
@@ -253,7 +250,6 @@ def view_my_shifts(startDateStr, empID):
         if startDateObj < oldestShiftDateObj:
             print(f"No Shifts before this date! Earliest shift to view is {oldestShiftDateStr}")
             view_my_shifts_UI(startDateStr, empID)
-            # print("Leaving view_my_shifts")
             return
     
 
@@ -292,7 +288,6 @@ def view_my_shifts(startDateStr, empID):
     
     print(table)
     view_my_shifts_UI(startDateStr, empID)
-    # print("Leaving view_my_shifts")
     return
 
 
@@ -315,7 +310,6 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
     if is_manager(empID):   # if the PASSED IN ID is a manager, they've already typed password, thus skip next
         inputLastStartDate = input("End Date (blank for no date cap)\n[YYYY-MM-DD]: ")
         view_all_time_off(priorMondayDateStr, inputID, listType, inputLastStartDate)
-        # print("Leaving view_time_off_caller")
         return
     # check if the INPUT ID is a manager then ask for password if so
     if is_manager(inputID):
@@ -340,7 +334,6 @@ def view_time_off_caller(priorMondayDateStr, listType='all', empID=None):    # '
     else: 
         view_my_time_off(priorMondayDateStr, inputID)   # for non-managers
     
-    # print("Leaving view_time_off_caller")
     return
 
 
@@ -414,7 +407,6 @@ def view_all_time_off(priorMondayDateStr, mngrID, listType, lastStartDate=None):
     else:
         print("err: invalid listType")
 
-    # print("Leaving view_all_time_off")
     return
 
 
@@ -456,12 +448,10 @@ def view_my_time_off(priorMondayDateStr, empID):
     print(table)
 
     view_my_time_off_UI(priorMondayDateStr, empID)
-    # print("Leaving view_my_time_off")
     return
 
 #------------REQUEST NEW TIME OFF (Employee)----------------
 def request_new_time_off(priorMondayDateStr, empID):
-    MENU_HISTORY.append((request_new_time_off, priorMondayDateStr, empID))
     inputStartDate  = input("Time Off Start Date [YYYY-MM-DD]: ")
     inputEndDate    = input("Time Off End Date   [YYYY-MM-DD]: ")
     inputReason     = input("Reason (optional): ")
@@ -481,23 +471,24 @@ def request_new_time_off(priorMondayDateStr, empID):
     print("Saved! Time Off Requested.")
 
     view_my_time_off(priorMondayDateStr, empID)
-    # print("Leaving request_new_time_off")
     return
     
 #------------UPDATE A TIME OFF (Manager)----------------
 def update_time_off_status(priorMondayDateStr, mngrID, listType):
     MENU_HISTORY.append((update_time_off_status, priorMondayDateStr, mngrID, listType))
-    print("Updating Shifts Status, type \'q\' to quit")
+    print("Updating Shifts Status, type \'b\' to return back")
     c = 0
     reqID  = 0
     status = 0
-    while reqID != 'q' and status != 'q':
+    while reqID != 'b' and status != 'b':
         reqID  = input("reqID: ")
-        if (is_input_quit_or_back(reqID)):
-            continue
+        if (reqID == 'b' or reqID == 'B'):
+            back()
+            return
         status  = input("Status (a/d): ")
-        if (is_input_quit_or_back(status)):
-            continue
+        if (status == 'b' or status == 'B'):
+            back()
+            return
         if   status == 'a': status = True
         elif status == 'd': status = False
         else: print("Invalid status; type \'a\' for Approve or \'d\' for Deny")
@@ -508,7 +499,6 @@ def update_time_off_status(priorMondayDateStr, mngrID, listType):
         c+=1 # c++ :D
     print("Updated",c,"shifts","\n")
     view_all_time_off_UI(priorMondayDateStr, mngrID, listType)    # listType is 'all' or 'pending'
-    # print("Leaving update_time_off_status")
     return
 
 
@@ -539,7 +529,6 @@ def message_manager_caller(priorMondayDateStr):
 
     # if password correct or a non-manager
     message_manager(priorMondayDateStr, inputID)   # if manager, inputID (self) will be a manager
-    # print("Leaving message_manager_caller")
     return
     
 def message_manager(priorMondayDateStr, empID):
@@ -562,7 +551,6 @@ def message_manager(priorMondayDateStr, empID):
 
         for message in messages:
             messageID, tableEmpID, tableMngrID, timestamp, messageBody = message
-            print("mngr",tableMngrID, mngrID)
             if str(tableMngrID) == mngrID: # grab only messages for this manager
                 mngrName = get_employeeName(tableEmpID, cursor)
 
@@ -576,10 +564,8 @@ def message_manager(priorMondayDateStr, empID):
 
         for message in messages:
             messageID, tableEmpID, tableMngrID, timestamp, messageBody = message
-            print("emp",tableEmpID, empID)
             if str(tableEmpID) == empID: # grab only messages for this worker
                 empName = get_employeeName(tableEmpID, cursor)
-                print("empName",empName)
 
                 # add row to messageTable
                 messageTable.add_row([messageID, empName, timestamp, messageBody])
@@ -588,6 +574,8 @@ def message_manager(priorMondayDateStr, empID):
         print("err: employeeID invalid?")
         return
     
+    #IH reassure privacy
+    print("(Messages can only be viewed by the recipient manager)")
 
     # prompt to send a reply  
     inputRecipient = ""
@@ -602,7 +590,7 @@ def message_manager(priorMondayDateStr, empID):
         # below are now above and at bottom of loop to handle the 'undo' case
         inputMessage   = input("Message: ")
         if (is_input_quit_or_back(inputMessage)):
-            return
+            continue
         theTimeNow = datetime.now().isoformat(' ', 'seconds')
 
         if manager:
@@ -621,6 +609,8 @@ def message_manager(priorMondayDateStr, empID):
 
         if manager: inputRecipient = input("Send to employeeID: ")
         elif not manager: inputRecipient = input("Send to managerID: ")
+        if (is_input_quit_or_back(inputRecipient)):
+            continue
         if inputRecipient  == 'u':  # 'undo' last message sent by deleting
             cursor.execute("DELETE FROM messages WHERE messageID = ?", (lastMessageID,))
             connection.commit()
@@ -628,24 +618,34 @@ def message_manager(priorMondayDateStr, empID):
             print("\nSend Another Message? (or \'b\' to return back | \'q\' to quit)")
             inputRecipient = input("Send to ID: ")
             if (is_input_quit_or_back(inputRecipient)):
-                return
+                continue
             
     connection.close()
 
     main_UI()
-    # print("Leaving message_manager")
     return
 
 #------------GO BACK (to previous screen(s))----------------
 def back():
     global MENU_HISTORY
-    if len(MENU_HISTORY) > 1:  # Ensure there's at least one previous state to go back to
-        print("\n\tGoing back...\n\n")
-        MENU_HISTORY.pop()  # Remove the current state
-        last_call = MENU_HISTORY[-1]  # Look at the last item in the history without removing it
+    if len(MENU_HISTORY) > 1:  # Check if there's a previous state to go back to
+        current_call = MENU_HISTORY.pop()  # Remove the current state
+        last_call = MENU_HISTORY[-1]  # Peek at the last state without removing it
         
-        function, *args = last_call  # Unpack the function and its arguments
-        function(*args)  # Execute the function with its arguments
+        # If the last call is the same as the current, keep popping until a different one is found
+        while len(MENU_HISTORY) > 1 and last_call[0] == current_call[0]:
+            MENU_HISTORY.pop()  # Remove redundant last call
+            last_call = MENU_HISTORY[-1]  # Peek again
+        
+        if len(MENU_HISTORY) > 1:
+            # Pop the unique last call to act upon it
+            unique_last_call = MENU_HISTORY.pop()
+            function, *args = unique_last_call
+            print("\n\tGoing back...\n\n")
+            function(*args)  # Execute the unique function with its arguments
+        else:
+            print("No previous unique menu to return to.")
+            MENU_HISTORY.append(current_call)  # Re-append the current call if there's nowhere else to go
     else:
         print("No previous menu to return to.")
 
@@ -664,6 +664,8 @@ def default():
     return
 
 
+
+
 #------------------------------------------------------------------------------
 #
 #
@@ -676,11 +678,6 @@ def default():
 def main_UI():
     MENU_HISTORY.append((main_UI,))
     today = datetime.now()
-    lastWeek = today - timedelta(days=7)    # manual adjustment for debug
-    nextWeek = today + timedelta(days=7)    # manual adjustment for debug
-    nextNextWeek = today + timedelta(days=7)# manual adjustment for debug
-    today = nextWeek                        # manual adjustment for debug
-    nextWeek = nextNextWeek                 # manual adjustment for debug
     # calc todays weekday (0=Monday, 1=Tuesday...6=Sunday)
     daysToMonday = today.weekday()
     priorMondayDate = today - timedelta(days=daysToMonday)
@@ -705,14 +702,13 @@ def main_UI():
     print("1 | All Shifts                   | View shifts for all employees for the upcoming week")
     print("2 | My Shifts                    | View in detial and edit your upcoming shifts")
     print("3 | Time off                     | To see your upcoming time off requests and status")
-    print("m | Message a manager            | For any questions or other requests!")
+    print("m | Message a manager            | For any questions or other requests")
     print("b | Back")
     print("q | Quit")
     inputChoice = input("Input: ")
     print("")
 
     menu_option(inputChoice)
-    # print("Leaving main_UI")
     return
 
 
@@ -750,7 +746,6 @@ def view_all_shifts_UI(priorMondayDateStr, empID=0):
     print("")
 
     menu_option(inputChoice)
-    # print("Leaving view_all_shifts_UI")
     return
 
 
@@ -789,7 +784,6 @@ def view_my_shifts_UI(priorMondayDateStr, empID):
     print("")
 
     menu_option(inputChoice)
-    # print("Leaving view_my_shifts_UI")
     return
 
 
@@ -819,7 +813,6 @@ def view_my_time_off_UI(priorMondayDateStr, empID):
     print("")
 
     menu_option(inputChoice)
-    # print("Leaving view_my_time_off_UI")
     return
 
 #------------TIME OFF MENU UI MANAGER (display options available)----------------
@@ -850,7 +843,6 @@ def view_all_time_off_UI(priorMondayDateStr, mngrID, listType='all', lastStartDa
     print("")
 
     menu_option(inputChoice)
-    # print("Leaving view_all_time_off_UI")
     return
 
 
